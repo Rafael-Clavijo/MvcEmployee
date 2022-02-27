@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Data.Entity;
 using System.Linq;
 using System.Net;
-using System.Web;
 using System.Web.Mvc;
 using MvcEmployee.Models;
 
@@ -12,111 +9,48 @@ namespace MvcEmployee.Controllers
 {
     public class EmployeesController : Controller
     {
-        private EmployeeDBContext db = new EmployeeDBContext();
-
-        // GET: Employees
+        /// <summary>
+        /// Shows the employees in the system, filtered by their ID.
+        /// </summary>
+        /// <param name="searchString">The filter</param>
+        /// <returns></returns>
         public ActionResult Index(string searchString)
         {
             //Get all employees
-            var employees = (from e in db.Employees select e).ToList();
+            var employees = new WebEmployeesClient().GetAllEmployees();
             //Filter Employees
             if (!String.IsNullOrEmpty(searchString)) employees = employees.Where(s => s.Id.ToString().Contains(searchString)).ToList();
             //Fix calculated Employee properties
             employees.ForEach(hire => hire.AnnualSalary = hire.Salary * 12);
-            //Display result
-            return View(employees);
+            //Display detailed result if there is a perfect match
+            if (employees.Exists(x => x.Id.ToString().Equals(searchString)))
+                return Redirect($"Employees/Details/{employees.First(x => x.Id.ToString().Equals(searchString)).Id}");
+            //Display detailed result if there is only one option
+            else if (employees.Count != 1)
+                return View(employees);
+            //Display filtered results
+            else
+                return Redirect($"Employees/Details/{employees.First().Id}");
         }
 
-        // GET: Employees/Details/5
+        /// <summary>
+        /// Shows the details on the data of a particular employee.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public ActionResult Details(int? id)
         {
+            //Without id, throw an error message
             if (id == null)
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
-            Employee employee = db.Employees.Find(id);
+            Employee employee = new WebEmployeesClient().GetEmployeesById((int)id);
+            //If id not found, throw an error message
             if (employee == null)
                 return HttpNotFound();
+            //Calculate the annual salary field
             else
                 employee.AnnualSalary = employee.Salary * 12;
             return View(employee);
-        }
-
-        // GET: Employees/Create
-        public ActionResult Create()
-        {
-            return View();
-        }
-
-        // POST: Employees/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Create([Bind(Include = "Id,Name,Salary,Age,ProfileImage,AnnualSalary")] Employee employee)
-        {
-            if (ModelState.IsValid)
-            {
-                db.Employees.Add(employee);
-                db.SaveChanges();
-                return RedirectToAction("Index");
-            }
-
-            return View(employee);
-        }
-
-        // GET: Employees/Edit/5
-        public ActionResult Edit(int? id)
-        {
-            if (id == null)
-                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
-            Employee employee = db.Employees.Find(id);
-            if (employee == null)
-                return HttpNotFound();
-            return View(employee);
-        }
-
-        // POST: Employees/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Edit([Bind(Include = "Id,Name,Salary,Age,ProfileImage,AnnualSalary")] Employee employee)
-        {
-            if (ModelState.IsValid)
-            {
-                db.Entry(employee).State = EntityState.Modified;
-                db.SaveChanges();
-                return RedirectToAction("Index");
-            }
-            return View(employee);
-        }
-
-        // GET: Employees/Delete/5
-        public ActionResult Delete(int? id)
-        {
-            if (id == null)
-                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
-            Employee employee = db.Employees.Find(id);
-            if (employee == null)
-                return HttpNotFound();
-            return View(employee);
-        }
-
-        // POST: Employees/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public ActionResult DeleteConfirmed(int id)
-        {
-            Employee employee = db.Employees.Find(id);
-            db.Employees.Remove(employee);
-            db.SaveChanges();
-            return RedirectToAction("Index");
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-                db.Dispose();
-            base.Dispose(disposing);
         }
     }
 }
